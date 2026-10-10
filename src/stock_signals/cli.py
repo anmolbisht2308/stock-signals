@@ -9,9 +9,12 @@ from stock_signals.bars import BarStore
 from stock_signals.config import Settings, get_settings
 from stock_signals.db import connect
 from stock_signals.notify import Notifier, make_notifier
+from stock_signals.panel import Universe, load_panel
 from stock_signals.pipeline import Pipeline
+from stock_signals.scan import build_strategies, scan, scan_text
 from stock_signals.sources.yahoo import YahooSource
 from stock_signals.universe import (
+    CALENDAR_SYMBOL,
     INDEX_URLS,
     SymbolStore,
     download_universe,
@@ -79,6 +82,27 @@ def cmd_update(settings: Settings, args: argparse.Namespace) -> str:
     return make_pipeline(settings).run(full=False, only=args.symbols).summary()
 
 
+def latest_session(store: BarStore) -> str:
+    last = store.last_dates().get(CALENDAR_SYMBOL)
+    if not last:
+        raise RuntimeError("No data yet: run `backfill` first")
+    return last
+
+
+def cmd_scan(settings: Settings, args: argparse.Namespace) -> str:
+    db = connect(settings)
+    store, symbols = BarStore(db), SymbolStore(db)
+    universe = Universe.from_store(symbols)
+    date = args.date or latest_session(store)
+    panel = load_panel(store, universe, end=date)
+    if date not in panel.calendar:
+        raise ValueError(f"{date} is not a trading session in the stored data")
+    result = scan(
+        panel, universe, date, build_strategies(universe), settings.capital(), settings.sizing()
+    )
+    return scan_text(result)
+
+
 def cmd_telegram_test(settings: Settings, args: argparse.Namespace) -> str:
     return "👋 Hello from stock-signals"
 
@@ -88,6 +112,7 @@ COMMANDS = {
     "rename": cmd_rename,
     "backfill": cmd_backfill,
     "update": cmd_update,
+    "scan": cmd_scan,
     "telegram-test": cmd_telegram_test,
 }
 
@@ -106,6 +131,9 @@ def build_parser() -> argparse.ArgumentParser:
     for name, text in (("backfill", "download full history"), ("update", "fetch new bars")):
         c = sub.add_parser(name, help=text)
         c.add_argument("--symbols", nargs="+", help="only these symbols (default: universe)")
+
+    sc = sub.add_parser("scan", help="run the rules on one date (empty portfolio)")
+    sc.add_argument("--date", help="YYYY-MM-DD (default: latest session)")
 
     sub.add_parser("telegram-test", help="send a hello message")
     return p

@@ -48,22 +48,23 @@ Work one phase at a time. Tick boxes as items are done.
 
 ## Phase 2 — Indicators and rule-based signals
 
-- [ ] Indicator module (TA-Lib or pandas): SMA/EMA 20/50/200, ATR(14), RSI(14), 20/55-day highs, ROC 3/6/12-month, volume ratio
-- [ ] **Market regime filter:** Nifty above its 200-day average = risk-on (full signals); below = risk-off (swing signals halved, no new positional entries); also check breadth (% of stocks above their 50-day average)
-- [ ] **Swing rules (v1):**
+- [x] Indicator module (pure pandas, no TA-Lib install needed): SMA/EMA 20/50/200, ATR(14), RSI(14), 20/55-day highs, ROC 3/6/12-month, volume ratio
+- [x] **Market regime filter:** Nifty above its 200-day average = risk-on (full signals); below = risk-off (swing signals halved, no new positional entries); breadth < 40% of stocks above their 50-day average = caution (swing halved)
+- [x] **Swing rules (v1):**
   - Trend: close > 50 SMA > 200 SMA
   - Setup: pullback to 20 EMA and bounce, **or** 20-day high breakout with volume ≥ 1.5× average
+  - Filters: RSI(14) < 80, ₹10 cr median daily value; ranked by 6-month relative strength; max 5 new/day (2 when not risk-on)
   - Stop loss: 1.5× ATR below entry (or below swing low, whichever is tighter but ≥ 1× ATR)
   - Targets: T1 = 1.5R (book half, move stop to entry), T2 = 3R or trailing 20 EMA close
   - Time stop: exit after 15 trading days if neither hit
-- [ ] **Positional rules (v1):**
+- [x] **Positional rules (v1):**
   - Rank Nifty 500 by momentum score (50% 6-month + 50% 12-month return, divided by volatility), liquidity filter
   - Buy top-ranked names above their 200-day average, max 10 open positions
   - Stop loss: 2.5–3× ATR initially, then trail by weekly close below 50-day average
   - Exit also when the stock drops out of the top 100 rank
-- [ ] Position sizing: risk 1% of book capital per trade (qty = risk ₹ ÷ (entry − stop)); max 20% capital in one stock, max 3 per sector
-- [ ] Signal schema (Pydantic): id, book, symbol, created date, entry zone, stop, T1, T2, time stop, qty, reason, rule version
-- [ ] Unit tests for every rule on small hand-made price series
+- [x] Position sizing: risk 1% of book capital per trade (qty = risk ₹ ÷ (entry − stop)); max 20% capital in one stock, max 3 per sector
+- [x] Signal schema (Pydantic): id, book, symbol, created date, entry zone, stop, T1, T2, time stop, qty, reason, rule version
+- [x] Unit tests for every rule on small hand-made price series; `stock-signals scan --date YYYY-MM-DD`
 
 **Done when:** running the rules on any historical date produces a deterministic list of signals.
 
