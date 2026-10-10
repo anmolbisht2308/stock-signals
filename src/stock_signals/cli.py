@@ -6,7 +6,7 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 
-from stock_signals import dates
+from stock_signals import dates, jobs
 from stock_signals.backtest import PERIODS, run_backtest
 from stock_signals.bars import BarStore
 from stock_signals.config import Settings, get_settings
@@ -163,6 +163,25 @@ def cmd_walkforward(settings: Settings, args: argparse.Namespace) -> str:
     return _backtest(settings, books, [(k, *PERIODS[k]) for k in labels])
 
 
+def cmd_evening(settings: Settings, args: argparse.Namespace) -> str:
+    return jobs.evening(jobs.App.create(settings), update=not args.no_update)
+
+
+def cmd_morning(settings: Settings, args: argparse.Namespace) -> str:
+    return jobs.morning(jobs.App.create(settings))
+
+
+def cmd_weekly(settings: Settings, args: argparse.Namespace) -> str:
+    return jobs.weekly(jobs.App.create(settings))
+
+
+def cmd_serve(settings: Settings, args: argparse.Namespace) -> str:
+    from stock_signals.bot import serve
+
+    serve(jobs.App.create(settings))
+    return "👋 Bot stopped"
+
+
 def cmd_telegram_test(settings: Settings, args: argparse.Namespace) -> str:
     return "👋 Hello from stock-signals"
 
@@ -175,6 +194,10 @@ COMMANDS = {
     "scan": cmd_scan,
     "backtest": cmd_backtest,
     "walkforward": cmd_walkforward,
+    "evening": cmd_evening,
+    "morning": cmd_morning,
+    "weekly": cmd_weekly,
+    "serve": cmd_serve,
     "telegram-test": cmd_telegram_test,
 }
 
@@ -207,6 +230,12 @@ def build_parser() -> argparse.ArgumentParser:
     wf.add_argument(
         "--final", action="store_true", help="also run the untouched final period (do this once)"
     )
+
+    ev = sub.add_parser("evening", help="update data, run paper trading, send signals")
+    ev.add_argument("--no-update", action="store_true", help="skip the data download")
+    sub.add_parser("morning", help="send today's plan")
+    sub.add_parser("weekly", help="send the weekly summary")
+    sub.add_parser("serve", help="run the Telegram bot with the built-in schedule")
 
     sub.add_parser("telegram-test", help="send a hello message")
     return p

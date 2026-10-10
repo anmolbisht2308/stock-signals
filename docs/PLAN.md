@@ -85,17 +85,19 @@ Work one phase at a time. Tick boxes as items are done.
 
 ## Phase 4 — Telegram alerts and paper trading
 
-- [ ] Bot (`python-telegram-bot`), messages to my private group only; ignore commands from any other chat id
-- [ ] **Evening job (~16:30 IST):** update data → run rules → send new signals for tomorrow, e.g.:
+- [x] Bot (`python-telegram-bot`), messages to my private group only; ignore commands from any other chat id
+- [x] **Evening job (~16:30 IST):** update data → run rules → send new signals for tomorrow, e.g.:
   `🟢 SWING BUY TATAMOTORS | Entry 960–970 | SL 942 | T1 995 | T2 1030 | Qty 40 | Risk ₹1,000 | Reason: 20d breakout, vol 2.1x`
-- [ ] **Morning job (~09:20 IST):** paper-fill yesterday's signals at the open price (skip if the open gapped above the entry zone)
-- [ ] **Exit tracking (daily on close):** T1/T2/SL/time-stop/trailing-stop hits → exit messages (`🔴 SL HIT`, `🎯 T1 HIT — book half, SL to cost`)
-- [ ] Paper ledger in MongoDB: every signal, fill, exit and P&L net of costs; records are never edited, only appended
-- [ ] Commands: `/open`, `/closed`, `/perf`, `/perf swing|positional`, `/why SYMBOL`, `/pause`, `/resume`
-- [ ] Weekly summary (Saturday): trades, win rate, expectancy, equity vs Nifty, per book
-- [ ] Scheduling: cron or APScheduler on a small VPS / always-on PC; skip NSE holidays
+- [x] **Morning job (09:00 IST):** sends today's plan (buys at the open, planned exits). The paper fill itself happens in the evening run using that day's actual open from the EOD bar (skipped if it gapped above the entry zone or below the stop) — no intraday data needed
+- [x] **Exit tracking (daily on close):** T1/T2/SL/time-stop/trailing-stop hits → exit messages (`🔴 SL HIT`, `🎯 T1 HIT — book half, SL to cost`)
+- [x] Paper ledger in MongoDB (`paper_events`, `paper_trades`, `paper_equity`; book state in `paper_books`): every signal, fill, exit and P&L net of costs; records are never edited, only appended
+- [x] Commands: `/plan`, `/open`, `/closed`, `/perf`, `/perf swing|positional`, `/why SYMBOL`, `/pause`, `/resume`, `/help`
+- [x] Weekly summary (Saturday): trades, win rate, expectancy, equity vs Nifty, per book
+- [x] Scheduling: `stock-signals serve` (bot + built-in schedule) or cron with `evening`/`morning`/`weekly`; holidays need no list — the evening run finds no new Nifty bar and does nothing. Missed days are replayed (up to 30 sessions)
 
 **Done when:** a full week runs unattended with correct messages and a correct paper ledger.
+
+> Code and tests are done (paper results match the backtest exactly on the same days). To verify on my machine: one unattended week.
 
 ## Phase 5 — Baskets (core + satellite)
 
