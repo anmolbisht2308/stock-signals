@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     core_pct: float = 70.0
     core_mode: str = "lowvol"  # "lowvol" (20 low-volatility Nifty 100 stocks) or "etf"
 
+    # Phase 7/8: run saved models as shadow paper books next to the rules-only books.
+    shadow_models: bool = True
+
+    @property
+    def models_dir(self) -> Path:
+        return self.data_dir.parent / "models"
+
     def capital(self) -> dict[str, float]:
         return {"swing": self.swing_capital, "positional": self.positional_capital}
 

@@ -40,3 +40,15 @@ def test_review_checks_and_file(db, tmp_path):
     assert "swing-v1" in text and "missed fill on S03" in text and decision in text
     path2 = next_review_path(tmp_path)
     assert path2.name == "paper-review-2.md"
+
+
+def test_shadow_check(db):
+    from stock_signals.review import shadow_check
+
+    store = PaperStore(db)
+    [c] = shadow_check(store, "swing-v1", "swing-v1+lgbm")
+    assert not c.ok and "no sessions" in c.detail
+    for i in range(25):
+        store.append("swing-v1+lgbm", [], [], f"2026-01-{i + 1:02d}", 1.0, 0.0, 1.0)
+    checks = shadow_check(store, "swing-v1", "swing-v1+lgbm")
+    assert len(checks) == 2 and not checks[0].ok  # no trades yet

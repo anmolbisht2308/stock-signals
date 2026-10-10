@@ -131,6 +131,33 @@ def review_variant(
     return lines, checks
 
 
+def shadow_check(store: PaperStore, base_variant: str, model_variant: str) -> list[Check]:
+    """Paper half of the keep rule: ≥ 4 weeks, ≥ 20 trades combined, and expectancy with the
+    model not lower than rules-only over the same period."""
+    eq = store.equity_frame(model_variant)
+    if eq.empty:
+        return [Check(f"{model_variant} shadow run", False, "no sessions yet")]
+    since = str(eq.index[0])
+    model_trades = store.trade_list(variant=model_variant, since=since)
+    base_trades = store.trade_list(variant=base_variant, since=since)
+    sessions = len(eq)
+    exp_m = sum(t.r_multiple for t in model_trades) / len(model_trades) if model_trades else 0.0
+    exp_b = sum(t.r_multiple for t in base_trades) / len(base_trades) if base_trades else 0.0
+    enough = sessions >= 20 and len(model_trades) + len(base_trades) >= 20
+    return [
+        Check(
+            f"{model_variant}: ≥ 4 weeks and ≥ 20 trades",
+            enough,
+            f"{sessions} sessions, {len(model_trades)} + {len(base_trades)} trades",
+        ),
+        Check(
+            f"{model_variant}: expectancy not below {base_variant}",
+            enough and exp_m >= exp_b,
+            f"{exp_m:+.2f}R vs {exp_b:+.2f}R",
+        ),
+    ]
+
+
 def next_review_path(docs: Path) -> Path:
     n = 1
     while (docs / f"paper-review-{n}.md").exists():

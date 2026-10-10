@@ -118,3 +118,26 @@ def test_jobs_end_to_end(db, tmp_path):
     assert "Today's plan" in morning(app)
     w = weekly(app)
     assert "Weekly summary" in w and "Since start" in w
+
+
+def test_shadow_model_book(db, tmp_path):
+    from stock_signals.ml.evaluate import train_final
+
+    days = seed(db)
+    settings = Settings(data_dir=tmp_path / "data")
+    app = App.create(settings, db=db)
+    universe = app.universe()
+    from stock_signals.panel import load_panel
+
+    panel = load_panel(app.bars, universe, end=days[-1], start=days[0])
+    swing = build_strategies(universe)[0]
+    train_final(panel, swing, universe.sector_of, days[0], days[-1]).save(
+        settings.models_dir / "swing-lgbm.txt"
+    )
+    versions = [s.version for s in app.strategies(universe, panel)]
+    assert versions == ["swing-v1", "positional-v1", "swing-v1+lgbm"]
+    text = evening(app, update=False)
+    assert days[-1] in text
+    assert app.paper.load_state("swing-v1+lgbm") is not None
+    settings_off = Settings(data_dir=tmp_path / "data", shadow_models=False)
+    assert len(App.create(settings_off, db=db).strategies(universe, panel)) == 2

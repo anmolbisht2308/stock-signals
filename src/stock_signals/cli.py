@@ -200,6 +200,7 @@ def cmd_review(settings: Settings, args: argparse.Namespace) -> str:
         next_review_path,
         review_start,
         review_variant,
+        shadow_check,
         write_review,
     )
 
@@ -220,9 +221,94 @@ def cmd_review(settings: Settings, args: argparse.Namespace) -> str:
         )
         sections.append(lines)
         checks += c
+    for strat in app.strategies(universe, panel):
+        if "+" in strat.version:
+            base = strat.version.split("+")[0]
+            c = shadow_check(app.paper, base, strat.version)
+            sections.append([f"### Shadow: {strat.version}", "", *(x.line() for x in c)])
+            checks += c
     path = next_review_path(Path("docs"))
     decision = write_review(path, sections, checks, Journal(app.db).entries())
     return "\n".join([f"📝 Paper review written to {path}", *(c.line() for c in checks), decision])
+
+
+def _ml_context(settings: Settings):
+    app = jobs.App.create(settings)
+    universe = app.universe()
+    latest = latest_session(app.bars)
+    start = PERIODS["tune"][0]
+    warmup = dates.to_str(dates.parse(start) - timedelta(days=600))
+    panel = load_panel(app.bars, universe, end=latest, start=warmup)
+    return app, universe, latest, start, panel
+
+
+def _kronos_extra(app: jobs.App, use: bool):
+    if not use:
+        return None
+    from stock_signals.ml.kronos import KronosCache
+
+    extra = KronosCache(app.db).frame()
+    if extra is None or extra.empty:
+        raise RuntimeError("No Kronos features cached yet: run `kronos-features` first")
+    return extra
+
+
+def cmd_ml_evaluate(settings: Settings, args: argparse.Namespace) -> str:
+    from stock_signals.ml.evaluate import evaluate, log_decision
+
+    app, universe, latest, start, panel = _ml_context(settings)
+    extra = _kronos_extra(app, args.kronos)
+    windows = {"test": PERIODS["test"]}
+    if args.final:
+        windows["final"] = (PERIODS["final"][0], latest)
+    if args.kronos:
+        # Kronos may have seen data before mid-2024 in pre-training: judge it after that only.
+        from stock_signals.ml.kronos import EVAL_START
+
+        windows = {"post-2024": (EVAL_START, latest)}
+    decide_on = "final" if "final" in windows else next(iter(windows))
+    books = ["swing", "positional"] if args.book == "all" else [args.book]
+    suffix = "lgbm_kronos" if args.kronos else "lgbm"
+    lines = []
+    for strat in build_strategies(universe):
+        if strat.book not in books:
+            continue
+        ev = evaluate(
+            panel,
+            strat,
+            settings.capital()[strat.book],
+            cost_model(settings),
+            settings.sizing(),
+            universe.sector_of,
+            start,
+            windows,
+            decide_on,
+            extra,
+            suffix,
+        )
+        log_decision(Path("docs/model-decisions.md"), ev)
+        lines += [*ev.lines(), ""]
+    lines.append("Logged to docs/model-decisions.md. Train a KEEP model with `ml-train`.")
+    return "\n".join(lines)
+
+
+def cmd_ml_train(settings: Settings, args: argparse.Namespace) -> str:
+    from stock_signals.ml.evaluate import train_final
+
+    app, universe, latest, start, panel = _ml_context(settings)
+    extra = _kronos_extra(app, args.kronos)
+    suffix = "lgbm_kronos" if args.kronos else "lgbm"
+    books = ["swing", "positional"] if args.book == "all" else [args.book]
+    lines = []
+    for strat in build_strategies(universe):
+        if strat.book not in books:
+            continue
+        model = train_final(panel, strat, universe.sector_of, start, latest, args.threshold, extra)
+        path = settings.models_dir / f"{strat.book}-{suffix}.txt"
+        model.save(path)
+        lines.append(f"💾 {path} (trained to {model.train_end}, threshold {model.threshold:.2f})")
+    lines.append("The evening run now adds a shadow paper book for each saved model.")
+    return "\n".join(lines)
 
 
 def cmd_evening(settings: Settings, args: argparse.Namespace) -> str:
@@ -258,6 +344,8 @@ COMMANDS = {
     "walkforward": cmd_walkforward,
     "basket-backtest": cmd_basket_backtest,
     "review": cmd_review,
+    "ml-evaluate": cmd_ml_evaluate,
+    "ml-train": cmd_ml_train,
     "evening": cmd_evening,
     "morning": cmd_morning,
     "weekly": cmd_weekly,
@@ -300,6 +388,16 @@ def build_parser() -> argparse.ArgumentParser:
     bb.add_argument("--end")
 
     sub.add_parser("review", help="Phase 6 paper-run review → docs/paper-review-N.md")
+
+    me = sub.add_parser("ml-evaluate", help="rules vs rules+LightGBM, walk-forward, keep rule")
+    me.add_argument("--book", choices=["swing", "positional", "all"], default="all")
+    me.add_argument("--final", action="store_true", help="decide on the untouched final period")
+    me.add_argument("--kronos", action="store_true", help="add Kronos features (Phase 8)")
+
+    mt = sub.add_parser("ml-train", help="train on all history and save for shadow paper books")
+    mt.add_argument("--book", choices=["swing", "positional", "all"], default="all")
+    mt.add_argument("--kronos", action="store_true")
+    mt.add_argument("--threshold", type=float, help="min model score to keep a signal")
 
     ev = sub.add_parser("evening", help="update data, run paper trading, send signals")
     ev.add_argument("--no-update", action="store_true", help="skip the data download")

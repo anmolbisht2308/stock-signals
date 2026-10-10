@@ -130,13 +130,13 @@ Work one phase at a time. Tick boxes as items are done.
 
 ## Phase 7 — LightGBM (ranker / filter)
 
-- [ ] Features: the Phase 2 indicators + returns over several windows, volatility, volume, distance from highs, sector momentum, regime
-- [ ] Label: did the trade reach T1 before SL (swing), or forward 20/60-day return rank (positional)
-- [ ] Purged walk-forward training (gap between train and test so labels don't leak)
-- [ ] Use it to **rank or filter** the rule signals, not to create new ones
-- [ ] Backtest: rules vs rules + LightGBM, same costs, same period
-- [ ] **Shadow mode** for 4–8 weeks: send both versions (`[RULES]` and `[RULES+LGBM]`) and track both paper ledgers
-- [ ] Apply the [keep rule](#keep-rule)
+- [x] Features: the Phase 2 indicators + returns over several windows, volatility, volume, distance from highs, sector momentum, regime (`ml/features.py`; identical on the training panel and live snapshots — tested)
+- [x] Label: did the trade reach T1 before SL (swing), or forward 20/60-day return rank (positional)
+- [x] Purged walk-forward training (gap between train and test so labels don't leak): 6-month blocks, embargo = label horizon + 1 session
+- [x] Use it to **rank or filter** the rule signals, not to create new ones (`ScoredStrategy`; threshold = base win rate)
+- [x] Backtest: rules vs rules + LightGBM, same costs, same period (`stock-signals ml-evaluate [--final]`, logged to `docs/model-decisions.md`)
+- [x] **Shadow mode** for 4–8 weeks: send both versions and track both paper ledgers — `stock-signals ml-train` saves `models/<book>-lgbm.txt`; the evening run then adds a `swing-v1+lgbm` book, messages tagged `[variant]`
+- [ ] Apply the [keep rule](#keep-rule) — backtest half automatic in `ml-evaluate`, paper half in `review`; needs real data + the shadow run
 
 ## Phase 8 — Kronos (extra signal input)
 

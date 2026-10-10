@@ -29,6 +29,7 @@ def add_indicators(bars: pd.DataFrame) -> pd.DataFrame:
     df["bars_count"] = df.groupby("symbol", sort=False).cumcount() + 1
     df["prev_close"] = close.shift(1)
     df["prev_high"] = _by_symbol(df, "high").shift(1)
+    df["close_5"] = close.shift(5)
 
     for n in (20, 50, 200):
         df[f"sma{n}"] = close.transform(lambda s, n=n: s.rolling(n, min_periods=n).mean())
