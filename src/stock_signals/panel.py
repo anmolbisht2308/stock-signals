@@ -1,6 +1,6 @@
 """Builds the indicator panel and per-date context the strategies run on."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 
 import pandas as pd
@@ -20,10 +20,11 @@ class Universe:
     swing: set[str]
     positional: set[str]
     sector_of: dict[str, str]
+    core: set[str] = field(default_factory=set)
 
     @property
     def all(self) -> set[str]:
-        return self.swing | self.positional
+        return self.swing | self.positional | self.core
 
     @classmethod
     def from_store(cls, symbols: SymbolStore) -> "Universe":
@@ -32,6 +33,7 @@ class Universe:
             swing={d["symbol"] for d in docs if "NIFTY200" in d.get("indices", [])},
             positional={d["symbol"] for d in docs if "NIFTY500" in d.get("indices", [])},
             sector_of={d["symbol"]: d.get("industry", "") for d in docs},
+            core={d["symbol"] for d in docs if "NIFTY100" in d.get("indices", [])},
         )
 
 

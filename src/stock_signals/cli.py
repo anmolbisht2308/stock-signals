@@ -163,6 +163,37 @@ def cmd_walkforward(settings: Settings, args: argparse.Namespace) -> str:
     return _backtest(settings, books, [(k, *PERIODS[k]) for k in labels])
 
 
+def cmd_basket_backtest(settings: Settings, args: argparse.Namespace) -> str:
+    from stock_signals.basket_run import build_baskets, run_basket_backtest, split_capital
+
+    db = connect(settings)
+    store, symbols = BarStore(db), SymbolStore(db)
+    universe = Universe.from_store(symbols)
+    end = min(args.end or "2099-12-31", latest_session(store))
+    warmup = dates.to_str(dates.parse(args.start) - timedelta(days=600))
+    panel = load_panel(store, universe, end=end, start=warmup)
+    result = run_basket_backtest(
+        panel,
+        build_baskets(universe, settings.core_mode),
+        split_capital(settings.basket_capital, settings.core_pct),
+        cost_model(settings),
+        universe.sector_of,
+        args.start,
+        end,
+    )
+    out_dir = settings.data_dir.parent / "reports"
+    lines = []
+    for r in [*result.sleeves.values(), result.combined]:
+        path = write_report(r, out_dir)
+        lines += [
+            f"🧺 {r.variant} {r.start} → {r.end}",
+            *metrics_lines(r.metrics),
+            f"Report: {path}",
+            "",
+        ]
+    return "\n".join(lines).strip()
+
+
 def cmd_evening(settings: Settings, args: argparse.Namespace) -> str:
     return jobs.evening(jobs.App.create(settings), update=not args.no_update)
 
@@ -194,6 +225,7 @@ COMMANDS = {
     "scan": cmd_scan,
     "backtest": cmd_backtest,
     "walkforward": cmd_walkforward,
+    "basket-backtest": cmd_basket_backtest,
     "evening": cmd_evening,
     "morning": cmd_morning,
     "weekly": cmd_weekly,
@@ -230,6 +262,10 @@ def build_parser() -> argparse.ArgumentParser:
     wf.add_argument(
         "--final", action="store_true", help="also run the untouched final period (do this once)"
     )
+
+    bb = sub.add_parser("basket-backtest", help="backtest the core + satellite baskets")
+    bb.add_argument("--start", default="2016-01-01")
+    bb.add_argument("--end")
 
     ev = sub.add_parser("evening", help="update data, run paper trading, send signals")
     ev.add_argument("--no-update", action="store_true", help="skip the data download")

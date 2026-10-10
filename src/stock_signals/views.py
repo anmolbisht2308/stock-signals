@@ -120,11 +120,37 @@ def why_text(store: PaperStore, symbol: str, indicators: dict | None) -> str:
     return "\n".join(lines)
 
 
+def basket_text(states: list, capital: dict[str, float]) -> str:
+    """`states`: BasketState list; quantities are for the configured basket capital."""
+    if not states:
+        return "🧺 No baskets yet — they start with the next evening run"
+    lines = ["🧺 Baskets (paper)"]
+    for st in states:
+        value = st.value()
+        ret = value / st.capital - 1 if st.capital else 0.0
+        invested = 1 - st.cash / value if value else 0.0
+        lines.append(
+            f"\n{st.name.upper()}: {rs(value)} ({ret:+.1%}), {invested:.0%} invested, "
+            f"selected {st.last_selection or '–'}"
+        )
+        w = st.weights()
+        for sym, weight in sorted(w.items(), key=lambda kv: -kv[1]):
+            target = st.targets.get(sym, 0.0) * st.invest_fraction
+            lines.append(f"• {sym} {st.holdings[sym]} sh, {weight:.1%} (target {target:.1%})")
+        if st.pending:
+            parts = [
+                f"{'BUY' if o.qty > 0 else 'SELL'} {o.symbol} {abs(o.qty)}" for o in st.pending
+            ]
+            lines.append("Next open: " + ", ".join(parts))
+    return "\n".join(lines)
+
+
 HELP = """🤖 Commands
 /plan — today's buys and sells at the open
 /open — open paper positions
 /closed — last 10 closed trades
 /perf [swing|positional] — performance vs Nifty
 /why SYMBOL — last signal and current indicators
+/basket — core and satellite baskets
 /pause, /resume — stop or restart new signals
 /help — this list"""

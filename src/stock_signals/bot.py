@@ -15,7 +15,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, filters
 from stock_signals import jobs
 from stock_signals.dates import IST
 from stock_signals.notify import split_message
-from stock_signals.views import HELP, closed_text, open_text, perf_text, why_text
+from stock_signals.views import HELP, basket_text, closed_text, open_text, perf_text, why_text
 
 log = logging.getLogger(__name__)
 
@@ -76,6 +76,7 @@ def build_application(app: jobs.App) -> Application:
             else "Usage: /why SYMBOL"
         ),
     )
+    command("basket", lambda a: basket_text(app.baskets().all_states(), app.basket_capital()))
     command("pause", lambda a: pause(True))
     command("resume", lambda a: pause(False))
 

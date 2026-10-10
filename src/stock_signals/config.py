@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     slippage_pct: float = 0.1
     brokerage_per_order: float = 0.0  # delivery brokerage (₹0 at most discount brokers)
 
+    basket_capital: float = 500_000
+    core_pct: float = 70.0
+    core_mode: str = "lowvol"  # "lowvol" (20 low-volatility Nifty 100 stocks) or "etf"
+
     def capital(self) -> dict[str, float]:
         return {"swing": self.swing_capital, "positional": self.positional_capital}
 

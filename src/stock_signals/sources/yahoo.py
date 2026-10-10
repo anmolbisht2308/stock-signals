@@ -17,7 +17,7 @@ from stock_signals.sources import BAR_COLUMNS, SPLIT_COLUMNS, FetchResult
 
 log = logging.getLogger(__name__)
 
-INDEX_TICKERS = {"NIFTY50": "^NSEI", "INDIAVIX": "^INDIAVIX"}
+INDEX_TICKERS = {"NIFTY50": "^NSEI", "NIFTY500": "^CRSLDX", "INDIAVIX": "^INDIAVIX"}
 
 Downloader = Callable[..., pd.DataFrame]
 

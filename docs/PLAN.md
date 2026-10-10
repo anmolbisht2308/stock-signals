@@ -101,13 +101,13 @@ Work one phase at a time. Tick boxes as items are done.
 
 ## Phase 5 — Baskets (core + satellite)
 
-- [ ] **Core basket:** Nifty 50 ETF or 15–20 large-cap quality stocks, equal weight; rebalance yearly or when any weight drifts >5 points
-- [ ] **Momentum satellite:** top 20–30 by momentum score (Nifty200 Momentum 30 style), weights capped at 5–10%, rebalance every 6 months (June / December)
-- [ ] Allocation config: e.g. 70% core / 30% satellite; satellite cut to half when Nifty is below its 200-day average
-- [ ] Optimiser (skfolio or Riskfolio-Lib) only for weight caps and sector limits, not return forecasting
-- [ ] Backtest the baskets with costs vs Nifty 50 and Nifty 500
-- [ ] Telegram: `/basket`, rebalance alert with the exact buy/sell list and quantities for my capital
-- [ ] Paper-track basket value daily
+- [x] **Core basket:** NIFTYBEES ETF (`CORE_MODE=etf`) or the 20 lowest-volatility Nifty 100 stocks (default; no free fundamentals for a quality screen), equal weight; reselect in January, monthly check restores weights that drifted >5 points
+- [x] **Momentum satellite:** top 20–30 by momentum score (Nifty200 Momentum 30 style), weights capped at 5–10%, rebalance every 6 months (June / December)
+- [x] Allocation config: e.g. 70% core / 30% satellite; satellite cut to half when Nifty is below its 200-day average
+- [x] Weight caps and sector limits (10% per stock, 30% per sector) with a small built-in capping routine — no optimiser library needed for this
+- [x] Backtest the baskets with costs vs Nifty 50 and Nifty 500 (`stock-signals basket-backtest`)
+- [x] Telegram: `/basket`, rebalance alert with the exact buy/sell list and quantities for my capital (`BASKET_CAPITAL`, `CORE_PCT`)
+- [x] Paper-track basket value daily (evening run; `basket_state`, `basket_events`, `basket_equity`)
 
 **Done when:** basket backtests are done and the first paper rebalance message is correct.
 

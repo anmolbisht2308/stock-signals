@@ -25,12 +25,15 @@ def setup(db, data, **kw):
     return p, source
 
 
-def data_until(end, symbols=("NIFTY50", "INDIAVIX", "AAA", "BBB", "CCC")):
+MARKET = ("NIFTY50", "NIFTY500", "INDIAVIX", "NIFTYBEES")
+
+
+def data_until(end, symbols=(*MARKET, "AAA", "BBB", "CCC")):
     days = [d for d in DAYS if d <= end]
     out = {}
     for s in symbols:
         df = make_bars(s, days)
-        if s in ("NIFTY50", "INDIAVIX"):
+        if s in MARKET:
             df["volume"] = 0
         out[s] = df
     return out
@@ -39,7 +42,7 @@ def data_until(end, symbols=("NIFTY50", "INDIAVIX", "AAA", "BBB", "CCC")):
 def test_backfill_then_incremental_update(db):
     p, source = setup(db, data_until("2026-01-23"))
     res = p.run(full=True, now=datetime(2026, 1, 23, 17, 0, tzinfo=IST))
-    assert res.symbols == 5 and res.failed == []
+    assert res.symbols == 7 and res.failed == []
     assert res.quality.ok, res.quality.summary()
     assert p.bars.last_dates()["AAA"] == "2026-01-23"
 

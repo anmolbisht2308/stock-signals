@@ -7,11 +7,12 @@ from pymongo.database import Database
 
 from stock_signals import dates
 from stock_signals.bars import BarStore
+from stock_signals.basket_run import BasketPaper, build_baskets, split_capital
 from stock_signals.config import Settings
 from stock_signals.costs import CostModel
 from stock_signals.db import connect
 from stock_signals.indicators import add_indicators
-from stock_signals.panel import Universe
+from stock_signals.panel import Universe, load_panel
 from stock_signals.paper import PaperStore, PaperTrader
 from stock_signals.pipeline import Pipeline
 from stock_signals.scan import build_strategies
@@ -40,8 +41,24 @@ class App:
     def latest_session(self) -> str | None:
         return self.bars.last_dates().get(CALENDAR_SYMBOL)
 
-    def trader(self) -> PaperTrader:
-        universe = Universe.from_store(self.symbols)
+    def universe(self) -> Universe:
+        return Universe.from_store(self.symbols)
+
+    def basket_capital(self) -> dict[str, float]:
+        return split_capital(self.settings.basket_capital, self.settings.core_pct)
+
+    def baskets(self, universe: Universe | None = None) -> BasketPaper:
+        universe = universe or self.universe()
+        return BasketPaper(
+            self.db,
+            build_baskets(universe, self.settings.core_mode),
+            self.basket_capital(),
+            self.costs(),
+            universe.sector_of,
+        )
+
+    def trader(self, universe: Universe | None = None) -> PaperTrader:
+        universe = universe or self.universe()
         return PaperTrader(
             self.paper,
             self.bars,
@@ -73,7 +90,12 @@ def evening(app: App, now: datetime | None = None, update: bool = True) -> str:
     latest = app.latest_session()
     if not latest:
         raise RuntimeError("No data yet: run `backfill` first")
-    parts.append(app.trader().run(latest).text())
+    universe = app.universe()
+    panel = load_panel(app.bars, universe, end=latest)
+    parts.append(app.trader(universe).run(latest, panel).text())
+    basket_lines = app.baskets(universe).run(latest, panel)
+    if basket_lines:
+        parts.append("\n".join(basket_lines))
     return "\n\n".join(parts)
 
 

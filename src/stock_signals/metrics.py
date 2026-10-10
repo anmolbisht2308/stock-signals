@@ -70,6 +70,8 @@ LABELS = {
     "max_drawdown": ("Max drawdown", "pct"),
     "benchmark_cagr": ("Nifty 50 CAGR", "pct"),
     "benchmark_max_drawdown": ("Nifty 50 max drawdown", "pct"),
+    "nifty500_cagr": ("Nifty 500 CAGR", "pct"),
+    "nifty500_max_drawdown": ("Nifty 500 max drawdown", "pct"),
     "trades": ("Closed trades", "int"),
     "trades_per_month": ("Trades / month", "num"),
     "win_rate": ("Win rate", "pct"),

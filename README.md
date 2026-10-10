@@ -27,13 +27,13 @@ uv run stock-signals telegram-test
 ## Data (Phase 1)
 
 ```bash
-uv run stock-signals universe --download   # Nifty 200 + 500 lists from niftyindices.com
+uv run stock-signals universe --download   # Nifty 100 / 200 / 500 lists from niftyindices.com
 uv run stock-signals backfill              # ~10 years of daily bars (first run takes a while)
 uv run stock-signals update                # daily, after 16:00 IST
 uv run stock-signals rename OLDSYM NEWSYM  # when NSE changes a symbol
 ```
 
-If the niftyindices download is blocked, save the CSVs from the Nifty 200 / Nifty 500 index pages into `data/universe/nifty200.csv` and `data/universe/nifty500.csv` and run `universe` without `--download`.
+If the niftyindices download is blocked, save the CSVs from the Nifty 100 / 200 / 500 index pages into `data/universe/nifty100.csv`, `nifty200.csv` and `nifty500.csv` and run `universe` without `--download`.
 
 Every command posts its summary (or failure) to Telegram.
 
@@ -74,6 +74,17 @@ Prefer cron? Use the same jobs without the bot:
 ```
 
 If the PC was off, the next evening run replays the missed sessions (up to 30).
+
+## Baskets (Phase 5)
+
+- **Core** (default 70% of `BASKET_CAPITAL`): 20 lowest-volatility Nifty 100 stocks, equal weight, reselected each January, weights restored monthly if they drift > 5 points. `CORE_MODE=etf` uses NIFTYBEES instead.
+- **Satellite** (30%): top 30 Nifty 200 momentum stocks, score-weighted, max 10% per stock and 30% per sector, reselected in June and December; cut to 50% invested while the market is risk-off.
+
+```bash
+uv run stock-signals basket-backtest --start 2016-01-01
+```
+
+The evening run paper-tracks both baskets and posts rebalance orders; `/basket` shows holdings and weights.
 
 ## Development
 

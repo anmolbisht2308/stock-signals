@@ -17,12 +17,18 @@ from pymongo.database import Database
 log = logging.getLogger(__name__)
 
 INDEX_URLS = {
+    "NIFTY100": "https://www.niftyindices.com/IndexConstituent/ind_nifty100list.csv",
     "NIFTY200": "https://www.niftyindices.com/IndexConstituent/ind_nifty200list.csv",
     "NIFTY500": "https://www.niftyindices.com/IndexConstituent/ind_nifty500list.csv",
 }
 
 # Market-wide series stored alongside stocks (not tradable universe members).
-MARKET_SYMBOLS = {"NIFTY50": "Nifty 50 index", "INDIAVIX": "India VIX"}
+MARKET_SYMBOLS = {
+    "NIFTY50": "Nifty 50 index",
+    "NIFTY500": "Nifty 500 index",
+    "INDIAVIX": "India VIX",
+    "NIFTYBEES": "Nippon India Nifty 50 BeES ETF (core basket option)",
+}
 CALENDAR_SYMBOL = "NIFTY50"
 
 
