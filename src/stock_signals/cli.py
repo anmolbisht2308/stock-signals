@@ -194,6 +194,37 @@ def cmd_basket_backtest(settings: Settings, args: argparse.Namespace) -> str:
     return "\n".join(lines).strip()
 
 
+def cmd_review(settings: Settings, args: argparse.Namespace) -> str:
+    from stock_signals.review import (
+        Journal,
+        next_review_path,
+        review_start,
+        review_variant,
+        write_review,
+    )
+
+    app = jobs.App.create(settings)
+    universe = app.universe()
+    latest = latest_session(app.bars)
+    panel = load_panel(app.bars, universe, end=latest, start=review_start(latest))
+    sections, checks = [], []
+    for strat in build_strategies(universe):
+        lines, c = review_variant(
+            app.paper,
+            panel,
+            strat,
+            settings.capital()[strat.book],
+            cost_model(settings),
+            settings.sizing(),
+            universe,
+        )
+        sections.append(lines)
+        checks += c
+    path = next_review_path(Path("docs"))
+    decision = write_review(path, sections, checks, Journal(app.db).entries())
+    return "\n".join([f"📝 Paper review written to {path}", *(c.line() for c in checks), decision])
+
+
 def cmd_evening(settings: Settings, args: argparse.Namespace) -> str:
     return jobs.evening(jobs.App.create(settings), update=not args.no_update)
 
@@ -226,6 +257,7 @@ COMMANDS = {
     "backtest": cmd_backtest,
     "walkforward": cmd_walkforward,
     "basket-backtest": cmd_basket_backtest,
+    "review": cmd_review,
     "evening": cmd_evening,
     "morning": cmd_morning,
     "weekly": cmd_weekly,
@@ -266,6 +298,8 @@ def build_parser() -> argparse.ArgumentParser:
     bb = sub.add_parser("basket-backtest", help="backtest the core + satellite baskets")
     bb.add_argument("--start", default="2016-01-01")
     bb.add_argument("--end")
+
+    sub.add_parser("review", help="Phase 6 paper-run review → docs/paper-review-N.md")
 
     ev = sub.add_parser("evening", help="update data, run paper trading, send signals")
     ev.add_argument("--no-update", action="store_true", help="skip the data download")

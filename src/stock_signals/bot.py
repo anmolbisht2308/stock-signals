@@ -77,6 +77,16 @@ def build_application(app: jobs.App) -> Application:
         ),
     )
     command("basket", lambda a: basket_text(app.baskets().all_states(), app.basket_capital()))
+
+    def note(args: list[str]) -> str:
+        from stock_signals.review import Journal
+
+        if not args:
+            return "Usage: /note what happened"
+        Journal(app.db).add(" ".join(args))
+        return "📝 Noted for the paper review"
+
+    command("note", note)
     command("pause", lambda a: pause(True))
     command("resume", lambda a: pause(False))
 

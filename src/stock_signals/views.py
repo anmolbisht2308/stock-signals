@@ -152,5 +152,6 @@ HELP = """🤖 Commands
 /perf [swing|positional] — performance vs Nifty
 /why SYMBOL — last signal and current indicators
 /basket — core and satellite baskets
+/note TEXT — add to the paper-run journal
 /pause, /resume — stop or restart new signals
 /help — this list"""
