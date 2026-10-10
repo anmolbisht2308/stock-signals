@@ -1,0 +1,167 @@
+# Stock Signals — Phase Plan
+
+Personal signal bot for Indian equities (NSE). It sends **me** (and a private Telegram group with only me in it) buy calls with entry, stop loss, targets and exit alerts, plus core/satellite basket rebalance alerts.
+
+Personal use only. No subscribers, no paid group, no public channel. If that ever changes, read the SEBI notes in the research report first (a Research Analyst licence is needed to send calls to others).
+
+**Strategy:**
+1. Build data, backtesting and Telegram alerts using **simple rules** first.
+2. Run it in **paper mode for 1–2 months**: alerts only, no real money.
+3. Then add **LightGBM** and **Kronos**. Keep each one only if it improves the paper results (see the [keep rule](#keep-rule)).
+
+**Trading styles:** both, run as two separate books with their own rules, risk budget and stats:
+
+| Book | Holding period | Universe | Entry check | Exit check |
+|---|---|---|---|---|
+| **Swing** | 3–20 trading days | Nifty 200 (liquid) | Daily after close | Daily (intraday optional later) |
+| **Positional** | 1–6 months | Nifty 500, min liquidity filter | Weekly (Friday close) | Daily stop check, weekly trailing update |
+
+Work one phase at a time. Tick boxes as items are done.
+
+---
+
+## Phase 0 — Project setup
+
+- [ ] Python 3.11+ project (`uv` or `pip` + `pyproject.toml`), `src/` layout, `ruff` + `pytest`
+- [ ] `docker-compose.yml` with MongoDB (local)
+- [ ] Config via `.env` + Pydantic settings (Mongo URI, Telegram token/chat id, risk %, capital)
+- [ ] Create the Telegram bot with @BotFather; private group with only me; get the chat id
+- [ ] Universe files: Nifty 200 and Nifty 500 constituents (CSV, refreshed manually every 6 months)
+- [ ] Market calendar: NSE trading holidays for the year (skip runs on holidays)
+- [ ] Logging to file + a Telegram "job failed" message on any crash
+
+**Done when:** `pytest` passes on an empty test, Mongo runs, and a "hello" message reaches the Telegram group.
+
+## Phase 1 — Data pipeline
+
+- [ ] Download daily OHLCV for the universe + Nifty 50 index + India VIX (yfinance `.NS`; NSE bhavcopy as fallback)
+- [ ] 10+ years of history for backtests; incremental daily update after 15:30 IST
+- [ ] Adjust for splits and bonuses (check by comparing raw vs adjusted; flag >30% overnight jumps)
+- [ ] Store in a MongoDB time-series collection `bars` (`symbol`, `date` as `YYYY-MM-DD` IST, OHLCV)
+- [ ] Data quality checks: missing days, zero volume, duplicates, stale symbols → report in Telegram
+- [ ] Handle symbol changes and delistings (keep a `symbols` collection with status)
+- [ ] Liquidity metric: 20-day median traded value per stock
+
+**Done when:** the daily job updates all symbols in under 10 minutes and the quality report is clean.
+
+## Phase 2 — Indicators and rule-based signals
+
+- [ ] Indicator module (TA-Lib or pandas): SMA/EMA 20/50/200, ATR(14), RSI(14), 20/55-day highs, ROC 3/6/12-month, volume ratio
+- [ ] **Market regime filter:** Nifty above its 200-day average = risk-on (full signals); below = risk-off (swing signals halved, no new positional entries); also check breadth (% of stocks above their 50-day average)
+- [ ] **Swing rules (v1):**
+  - Trend: close > 50 SMA > 200 SMA
+  - Setup: pullback to 20 EMA and bounce, **or** 20-day high breakout with volume ≥ 1.5× average
+  - Stop loss: 1.5× ATR below entry (or below swing low, whichever is tighter but ≥ 1× ATR)
+  - Targets: T1 = 1.5R (book half, move stop to entry), T2 = 3R or trailing 20 EMA close
+  - Time stop: exit after 15 trading days if neither hit
+- [ ] **Positional rules (v1):**
+  - Rank Nifty 500 by momentum score (50% 6-month + 50% 12-month return, divided by volatility), liquidity filter
+  - Buy top-ranked names above their 200-day average, max 10 open positions
+  - Stop loss: 2.5–3× ATR initially, then trail by weekly close below 50-day average
+  - Exit also when the stock drops out of the top 100 rank
+- [ ] Position sizing: risk 1% of book capital per trade (qty = risk ₹ ÷ (entry − stop)); max 20% capital in one stock, max 3 per sector
+- [ ] Signal schema (Pydantic): id, book, symbol, created date, entry zone, stop, T1, T2, time stop, qty, reason, rule version
+- [ ] Unit tests for every rule on small hand-made price series
+
+**Done when:** running the rules on any historical date produces a deterministic list of signals.
+
+## Phase 3 — Backtesting engine
+
+- [ ] Own simple daily event-driven engine (no vectorbt/backtrader in the core — licence and clarity)
+- [ ] Fills: entry at **next day's open** (never the signal day's close); gap-down below stop → exit at open
+- [ ] If stop and target both fall inside the same day's range → assume the stop hit first (conservative)
+- [ ] Indian costs: brokerage, STT 0.1% (delivery), exchange charges, SEBI fee, stamp duty 0.015% buy, GST 18% on charges, DP charge per sell; plus 0.1% slippage (configurable)
+- [ ] Metrics per book: CAGR, max drawdown, win rate, average R, expectancy (R per trade), profit factor, exposure, trades/month; compare vs Nifty 50 buy-and-hold
+- [ ] Walk-forward: tune on 2014–2021, test on 2022–2024, final check on 2025–now (only touched once)
+- [ ] Use point-in-time universe where possible; note survivorship bias where not
+- [ ] HTML/Markdown report with equity curve, drawdown chart and trade list
+
+**Done when:** both books have a report, and results on the untouched final period are not wildly worse than on the test period.
+
+## Phase 4 — Telegram alerts and paper trading
+
+- [ ] Bot (`python-telegram-bot`), messages to my private group only; ignore commands from any other chat id
+- [ ] **Evening job (~16:30 IST):** update data → run rules → send new signals for tomorrow, e.g.:
+  `🟢 SWING BUY TATAMOTORS | Entry 960–970 | SL 942 | T1 995 | T2 1030 | Qty 40 | Risk ₹1,000 | Reason: 20d breakout, vol 2.1x`
+- [ ] **Morning job (~09:20 IST):** paper-fill yesterday's signals at the open price (skip if the open gapped above the entry zone)
+- [ ] **Exit tracking (daily on close):** T1/T2/SL/time-stop/trailing-stop hits → exit messages (`🔴 SL HIT`, `🎯 T1 HIT — book half, SL to cost`)
+- [ ] Paper ledger in MongoDB: every signal, fill, exit and P&L net of costs; records are never edited, only appended
+- [ ] Commands: `/open`, `/closed`, `/perf`, `/perf swing|positional`, `/why SYMBOL`, `/pause`, `/resume`
+- [ ] Weekly summary (Saturday): trades, win rate, expectancy, equity vs Nifty, per book
+- [ ] Scheduling: cron or APScheduler on a small VPS / always-on PC; skip NSE holidays
+
+**Done when:** a full week runs unattended with correct messages and a correct paper ledger.
+
+## Phase 5 — Baskets (core + satellite)
+
+- [ ] **Core basket:** Nifty 50 ETF or 15–20 large-cap quality stocks, equal weight; rebalance yearly or when any weight drifts >5 points
+- [ ] **Momentum satellite:** top 20–30 by momentum score (Nifty200 Momentum 30 style), weights capped at 5–10%, rebalance every 6 months (June / December)
+- [ ] Allocation config: e.g. 70% core / 30% satellite; satellite cut to half when Nifty is below its 200-day average
+- [ ] Optimiser (skfolio or Riskfolio-Lib) only for weight caps and sector limits, not return forecasting
+- [ ] Backtest the baskets with costs vs Nifty 50 and Nifty 500
+- [ ] Telegram: `/basket`, rebalance alert with the exact buy/sell list and quantities for my capital
+- [ ] Paper-track basket value daily
+
+**Done when:** basket backtests are done and the first paper rebalance message is correct.
+
+## Phase 6 — Paper run (8 weeks, no code changes to rules)
+
+- [ ] Freeze rule versions (`swing-v1`, `positional-v1`, `basket-v1`); only bug fixes allowed
+- [ ] Daily: check that the alerts match what actually happened in the market
+- [ ] Weekly: compare paper results with what the backtest predicted for a similar period
+- [ ] Keep a short journal of missed fills, bad data, confusing messages
+- [ ] **Review at the end:**
+  - ≥ 30 closed swing trades (positional will have fewer — judge on open P&L and rule-following)
+  - Expectancy after costs > 0 R
+  - Max drawdown within what the backtest showed
+  - No data or fill bugs left open
+- [ ] Decision: go to Phase 7, or fix rules and run another 4 weeks
+
+**Done when:** the review is written in `docs/paper-review-1.md`.
+
+## Phase 7 — LightGBM (ranker / filter)
+
+- [ ] Features: the Phase 2 indicators + returns over several windows, volatility, volume, distance from highs, sector momentum, regime
+- [ ] Label: did the trade reach T1 before SL (swing), or forward 20/60-day return rank (positional)
+- [ ] Purged walk-forward training (gap between train and test so labels don't leak)
+- [ ] Use it to **rank or filter** the rule signals, not to create new ones
+- [ ] Backtest: rules vs rules + LightGBM, same costs, same period
+- [ ] **Shadow mode** for 4–8 weeks: send both versions (`[RULES]` and `[RULES+LGBM]`) and track both paper ledgers
+- [ ] Apply the [keep rule](#keep-rule)
+
+## Phase 8 — Kronos (extra signal input)
+
+- [ ] Install Kronos (MIT); start with `Kronos-small` zero-shot on CPU
+- [ ] Patch: return all sampled paths, not just the mean; fix the normalisation look-ahead leak before any fine-tuning
+- [ ] Features: probability of going up, expected return, spread of paths, P(T1 before SL) from the sampled paths
+- [ ] Only evaluate on data **after mid-2024** (Kronos may have seen older data in pre-training)
+- [ ] Optional: fine-tune on NSE daily data if zero-shot shows any signal (rented GPU)
+- [ ] Compare against simple baselines (always-up, momentum, HAR volatility); add as LightGBM features
+- [ ] Shadow mode 4–8 weeks, then apply the [keep rule](#keep-rule)
+
+## Phase 9 — Optional extras (only after Phases 6–8)
+
+- [ ] Live intraday SL/target alerts via Upstox (free) or Kite (₹500/month) WebSocket for my own account
+- [ ] One-line LLM explanation per signal from news/announcements (Qwen/Gemini free tier — no personal data in prompts)
+- [ ] Next.js dashboard for the ledger, equity curves and baskets
+- [ ] Real money with small size (e.g. 25% of planned capital) for the first month
+
+---
+
+## Keep rule
+
+A model (LightGBM, Kronos, or anything new) stays only if, compared with the version without it:
+
+1. **Backtest** on the final untouched period: expectancy after costs is higher, and max drawdown is not worse by more than 20%.
+2. **Shadow paper run** (≥ 4 weeks, ≥ 20 trades combined): expectancy is not lower than the rules-only version.
+3. It does not make the system fragile (runs within the evening window, no manual steps).
+
+If it fails, remove it and note why in `docs/model-decisions.md`.
+
+## Rules for the codebase
+
+- All dates are IST `YYYY-MM-DD`; timestamps stored in UTC.
+- Signals and ledger entries are append-only; never edit history.
+- No look-ahead: a signal on day D may only use data up to D's close; fills happen on D+1.
+- Every rule and model has a version string saved with each signal.
+- Costs are always included in backtest and paper P&L.
