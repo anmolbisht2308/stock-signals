@@ -116,8 +116,8 @@ Work one phase at a time. Tick boxes as items are done.
 - [ ] Freeze rule versions (`swing-v1`, `positional-v1`, `basket-v1`); only bug fixes allowed
 - [ ] Daily: check that the alerts match what actually happened in the market
 - [ ] Weekly: compare paper results with what the backtest predicted for a similar period
-- [ ] Keep a short journal of missed fills, bad data, confusing messages
-- [ ] **Review at the end:**
+- [ ] Keep a short journal of missed fills, bad data, confusing messages (`/note …` in Telegram)
+- [ ] **Review at the end** (`stock-signals review` fills in the checks below and writes the file):
   - ≥ 30 closed swing trades (positional will have fewer — judge on open P&L and rule-following)
   - Expectancy after costs > 0 R
   - Max drawdown within what the backtest showed
@@ -125,6 +125,8 @@ Work one phase at a time. Tick boxes as items are done.
 - [ ] Decision: go to Phase 7, or fix rules and run another 4 weeks
 
 **Done when:** the review is written in `docs/paper-review-1.md`.
+
+> Tooling is done (`/note`, `stock-signals review`). The run itself takes 8 weeks on my machine, so the boxes stay open until then.
 
 ## Phase 7 — LightGBM (ranker / filter)
 
