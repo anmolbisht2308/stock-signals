@@ -19,6 +19,12 @@ class Scorer(Protocol):
     def score(self, date: str, snap: pd.DataFrame, symbols: list[str]) -> dict[str, float]: ...
 
 
+class ExtraProvider(Protocol):
+    """Extra feature columns for (date, symbols), indexed by (date, symbol)."""
+
+    def get(self, date: str, symbols: list[str], snap: pd.DataFrame) -> pd.DataFrame: ...
+
+
 class LookupScorer:
     """Precomputed (date, symbol) → score, e.g. walk-forward out-of-sample predictions."""
 
@@ -43,18 +49,21 @@ class ModelScorer:
         sector_of: dict[str, str],
         regimes: pd.DataFrame,
         extra: pd.DataFrame | None = None,
+        provider: "ExtraProvider | None" = None,
     ) -> None:
         self.model = model
         self.sector_of = sector_of
         self.regimes = regimes
         self.extra = extra
+        self.provider = provider
 
     def score(self, date: str, snap: pd.DataFrame, symbols: list[str]) -> dict[str, float]:
         if not symbols:
             return {}
         df = snap.rename_axis("symbol").reset_index()
         df["date"] = date
-        feats = make_features(df, self.sector_of, self.regimes, self.extra)
+        extra = self.provider.get(date, symbols, snap) if self.provider else self.extra
+        feats = make_features(df, self.sector_of, self.regimes, extra)
         feats = feats[feats["symbol"].isin(symbols)]
         if feats.empty:
             return {}

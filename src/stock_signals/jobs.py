@@ -70,11 +70,25 @@ class App:
         for strat in base:
             for name in model_names(self.settings.models_dir, strat.book):
                 model = TrainedModel.load(self.settings.models_dir / name)
-                extra = kronos_features(self.db, panel) if "kronos" in name else None
-                scorer = ModelScorer(model, universe.sector_of, panel.regimes, extra)
+                provider = self.kronos() if "kronos" in name else None
+                scorer = ModelScorer(model, universe.sector_of, panel.regimes, provider=provider)
                 suffix = name.removesuffix(".txt").split("-", 2)[-1]
                 shadows.append(ScoredStrategy(strat, scorer, model.threshold, suffix))
         return base + shadows
+
+    def kronos(self, with_sampler: bool = True):  # -> KronosFeatures
+        """Kronos features: cache, plus live sampling when KRONOS_PATH is set."""
+        from stock_signals.ml.kronos import KronosCache, KronosFeatures, KronosSampler
+
+        s = self.settings
+        sampler = None
+        if with_sampler and s.kronos_path:
+            sampler = KronosSampler(
+                s.kronos_path, s.kronos_model, s.kronos_tokenizer, s.kronos_device
+            )
+        return KronosFeatures(
+            KronosCache(self.db), self.bars, sampler, s.kronos_horizon, s.kronos_samples
+        )
 
     def trader(self, universe: Universe | None = None, panel: Panel | None = None) -> PaperTrader:
         universe = universe or self.universe()
@@ -94,12 +108,6 @@ def model_names(models_dir: Path, book: str) -> list[str]:
     if not models_dir.exists():
         return []
     return sorted(p.name for p in models_dir.glob(f"{book}-*.txt"))
-
-
-def kronos_features(db: Database, panel: Panel):  # -> pd.DataFrame | None
-    from stock_signals.ml.kronos import KronosCache
-
-    return KronosCache(db).frame(start=panel.calendar[0] if panel.calendar else None)
 
 
 def update_data(app: App, now: datetime | None = None) -> str:

@@ -311,6 +311,46 @@ def cmd_ml_train(settings: Settings, args: argparse.Namespace) -> str:
     return "\n".join(lines)
 
 
+def cmd_kronos_features(settings: Settings, args: argparse.Namespace) -> str:
+    """Compute and cache Kronos features for every swing rule candidate in a date range."""
+    from stock_signals.ml.kronos import EVAL_START
+    from stock_signals.regime import regime_on
+
+    if not settings.kronos_path:
+        raise RuntimeError("Set KRONOS_PATH to your clone of github.com/shiyu-coder/Kronos")
+    app = jobs.App.create(settings)
+    universe = app.universe()
+    end = args.end or latest_session(app.bars)
+    start = args.start or EVAL_START
+    warmup = dates.to_str(dates.parse(start) - timedelta(days=600))
+    panel = load_panel(app.bars, universe, end=end, start=warmup)
+    provider = app.kronos()
+    swing = build_strategies(universe)[0]
+    done = 0
+    for d in [x for x in panel.calendar if start <= x <= end]:
+        snap = panel.snapshot(d)
+        cands = swing.candidates(snap, regime_on(panel.regimes, d), d in panel.week_ends)
+        symbols = [c.symbol for c in cands]
+        if symbols:
+            provider.get(d, symbols, snap)
+            done += len(symbols)
+            log.info("kronos %s: %d candidates", d, len(symbols))
+    return f"🔮 Kronos features cached for {done} candidate rows ({start} → {end})"
+
+
+def cmd_kronos_report(settings: Settings, args: argparse.Namespace) -> str:
+    from stock_signals.ml.kronos import EVAL_START, KronosCache, kronos_report
+
+    app = jobs.App.create(settings)
+    universe = app.universe()
+    latest = latest_session(app.bars)
+    warmup = dates.to_str(dates.parse(EVAL_START) - timedelta(days=600))
+    panel = load_panel(app.bars, universe, end=latest, start=warmup)
+    return "\n".join(
+        kronos_report(KronosCache(app.db).frame(), panel.data, settings.kronos_horizon)
+    )
+
+
 def cmd_evening(settings: Settings, args: argparse.Namespace) -> str:
     return jobs.evening(jobs.App.create(settings), update=not args.no_update)
 
@@ -346,6 +386,8 @@ COMMANDS = {
     "review": cmd_review,
     "ml-evaluate": cmd_ml_evaluate,
     "ml-train": cmd_ml_train,
+    "kronos-features": cmd_kronos_features,
+    "kronos-report": cmd_kronos_report,
     "evening": cmd_evening,
     "morning": cmd_morning,
     "weekly": cmd_weekly,
@@ -398,6 +440,11 @@ def build_parser() -> argparse.ArgumentParser:
     mt.add_argument("--book", choices=["swing", "positional", "all"], default="all")
     mt.add_argument("--kronos", action="store_true")
     mt.add_argument("--threshold", type=float, help="min model score to keep a signal")
+
+    kf = sub.add_parser("kronos-features", help="cache Kronos features for swing candidates")
+    kf.add_argument("--start", help="default 2024-07-01 (after Kronos pre-training)")
+    kf.add_argument("--end")
+    sub.add_parser("kronos-report", help="Kronos vs always-up and momentum baselines")
 
     ev = sub.add_parser("evening", help="update data, run paper trading, send signals")
     ev.add_argument("--no-update", action="store_true", help="skip the data download")

@@ -92,3 +92,38 @@ The evening run paper-tracks both baskets and posts rebalance orders; `/basket` 
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
 ```
+
+## Paper review (Phase 6)
+
+During the 8-week paper run, jot anything odd with `/note …` in Telegram. At the end:
+
+```bash
+uv run stock-signals review     # writes docs/paper-review-N.md with the go/no-go checks
+```
+
+## LightGBM (Phase 7)
+
+The model only filters and re-ranks rule signals; it never creates new ones.
+
+```bash
+uv run stock-signals ml-evaluate            # rules vs rules+LightGBM on 2022–24 (walk-forward, purged)
+uv run stock-signals ml-evaluate --final    # decide on 2025–now (keep rule), logged to docs/model-decisions.md
+uv run stock-signals ml-train --book swing  # only after a KEEP: saves models/swing-lgbm.txt
+```
+
+With a saved model, the evening run adds a shadow paper book (`swing-v1+lgbm`) next to the rules-only one; messages are tagged `[variant]`. `review` then checks the paper half of the keep rule. Delete the model file to drop it.
+
+## Kronos (Phase 8)
+
+```bash
+git clone https://github.com/shiyu-coder/Kronos ~/Kronos
+uv pip install torch einops huggingface_hub safetensors
+echo "KRONOS_PATH=~/Kronos" >> .env
+
+uv run stock-signals kronos-features        # sample paths for every swing candidate since 2024-07-01 (slow on CPU)
+uv run stock-signals kronos-report          # Kronos vs always-up and momentum baselines
+uv run stock-signals ml-evaluate --book swing --kronos
+uv run stock-signals ml-train --book swing --kronos   # only after a KEEP
+```
+
+Kronos is only judged on data after mid-2024 (its pre-training may include earlier prices). If it doesn't beat the baselines, don't use it.

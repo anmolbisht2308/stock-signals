@@ -174,3 +174,18 @@ def test_evaluate_and_train_final_end_to_end(mkt, tmp_path):
     snap = panel.snapshot(days[-1])
     got = scorer.score(days[-1], snap, sorted(SYMS)[:3])
     assert set(got) == set(sorted(SYMS)[:3])
+
+
+def test_extra_features_join(mkt):
+    from stock_signals.ml.features import KRONOS
+
+    panel, days = mkt
+    d = days[350]
+    extra = pd.DataFrame(
+        {c: [0.5] for c in KRONOS},
+        index=pd.MultiIndex.from_tuples([(d, "S01")], names=["date", "symbol"]),
+    )
+    f = make_features(panel.data, U.sector_of, panel.regimes, extra)
+    row = f[(f["date"] == d) & (f["symbol"] == "S01")]
+    assert (row[KRONOS] == 0.5).all(axis=None)
+    assert f[(f["date"] == d) & (f["symbol"] == "S02")][KRONOS].isna().all(axis=None)

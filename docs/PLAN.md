@@ -140,13 +140,13 @@ Work one phase at a time. Tick boxes as items are done.
 
 ## Phase 8 — Kronos (extra signal input)
 
-- [ ] Install Kronos (MIT); start with `Kronos-small` zero-shot on CPU
-- [ ] Patch: return all sampled paths, not just the mean; fix the normalisation look-ahead leak before any fine-tuning
-- [ ] Features: probability of going up, expected return, spread of paths, P(T1 before SL) from the sampled paths
-- [ ] Only evaluate on data **after mid-2024** (Kronos may have seen older data in pre-training)
+- [x] Install Kronos (MIT); start with `Kronos-small` zero-shot on CPU — `KRONOS_PATH` points at a local clone; wrapper in `ml/kronos.py` (checked against the repo's `KronosPredictor` API)
+- [x] Patch: return all sampled paths, not just the mean (batch API: the same series ×N with `sample_count=1`); zero-shot inference normalises on the context window only, so the fine-tuning leak doesn't apply — fix it before any fine-tuning
+- [x] Features: probability of going up, expected return, spread of paths, P(T1 before SL) from the sampled paths (cached in `kronos_features`; `stock-signals kronos-features`)
+- [x] Only evaluate on data **after mid-2024** (Kronos may have seen older data in pre-training) — `EVAL_START = 2024-07-01` enforced in `kronos-features`, `kronos-report`, `ml-evaluate --kronos`
 - [ ] Optional: fine-tune on NSE daily data if zero-shot shows any signal (rented GPU)
-- [ ] Compare against simple baselines (always-up, momentum, HAR volatility); add as LightGBM features
-- [ ] Shadow mode 4–8 weeks, then apply the [keep rule](#keep-rule)
+- [x] Compare against simple baselines (always-up, momentum); add as LightGBM features (`kronos-report`, `ml-evaluate --kronos`, `ml-train --kronos` → `models/swing-lgbm_kronos.txt`). HAR volatility baseline not done — Kronos features here are direction/target-hit, not volatility
+- [ ] Shadow mode 4–8 weeks, then apply the [keep rule](#keep-rule) — the evening run samples Kronos live for the day's candidates when a `*kronos*` model is saved
 
 ## Phase 9 — Optional extras (only after Phases 6–8)
 

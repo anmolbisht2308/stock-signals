@@ -34,6 +34,14 @@ class Settings(BaseSettings):
     # Phase 7/8: run saved models as shadow paper books next to the rules-only books.
     shadow_models: bool = True
 
+    # Phase 8: local clone of github.com/shiyu-coder/Kronos (empty = Kronos off).
+    kronos_path: Path | None = None
+    kronos_model: str = "NeoQuasar/Kronos-small"
+    kronos_tokenizer: str = "NeoQuasar/Kronos-Tokenizer-base"
+    kronos_device: str = "cpu"
+    kronos_samples: int = 30
+    kronos_horizon: int = 15
+
     @property
     def models_dir(self) -> Path:
         return self.data_dir.parent / "models"
