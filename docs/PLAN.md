@@ -70,16 +70,18 @@ Work one phase at a time. Tick boxes as items are done.
 
 ## Phase 3 — Backtesting engine
 
-- [ ] Own simple daily event-driven engine (no vectorbt/backtrader in the core — licence and clarity)
-- [ ] Fills: entry at **next day's open** (never the signal day's close); gap-down below stop → exit at open
-- [ ] If stop and target both fall inside the same day's range → assume the stop hit first (conservative)
-- [ ] Indian costs: brokerage, STT 0.1% (delivery), exchange charges, SEBI fee, stamp duty 0.015% buy, GST 18% on charges, DP charge per sell; plus 0.1% slippage (configurable)
-- [ ] Metrics per book: CAGR, max drawdown, win rate, average R, expectancy (R per trade), profit factor, exposure, trades/month; compare vs Nifty 50 buy-and-hold
-- [ ] Walk-forward: tune on 2014–2021, test on 2022–2024, final check on 2025–now (only touched once)
-- [ ] Use point-in-time universe where possible; note survivorship bias where not
-- [ ] HTML/Markdown report with equity curve, drawdown chart and trade list
+- [x] Own simple daily event-driven engine (`book.py`, shared with paper trading) (no vectorbt/backtrader in the core — licence and clarity)
+- [x] Fills: entry at **next day's open** (never the signal day's close); gap-down below stop → exit at open
+- [x] If stop and target both fall inside the same day's range → assume the stop hit first (conservative)
+- [x] Indian costs: brokerage, STT 0.1% (delivery), exchange charges, SEBI fee, stamp duty 0.015% buy, GST 18% on charges, DP charge per sell; plus 0.1% slippage (configurable)
+- [x] Metrics per book: CAGR, max drawdown, win rate, average R, expectancy (R per trade), profit factor, exposure, trades/month; compare vs Nifty 50 buy-and-hold
+- [x] Walk-forward: tune on 2014–2021, test on 2022–2024, final check on 2025–now (only touched once) — `stock-signals walkforward [--final]`
+- [x] Use point-in-time universe where possible; note survivorship bias where not (no free point-in-time constituents, so every report carries the survivorship warning)
+- [x] HTML/Markdown report with equity curve, drawdown chart and trade list
 
 **Done when:** both books have a report, and results on the untouched final period are not wildly worse than on the test period.
+
+> Code and tests are done. To do on my machine after the Phase 1 backfill: `stock-signals walkforward`, read the reports in `reports/`, then `--final` once.
 
 ## Phase 4 — Telegram alerts and paper trading
 

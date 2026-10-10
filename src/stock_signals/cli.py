@@ -3,14 +3,20 @@
 import argparse
 import logging
 import sys
+from datetime import timedelta
 from pathlib import Path
 
+from stock_signals import dates
+from stock_signals.backtest import PERIODS, run_backtest
 from stock_signals.bars import BarStore
 from stock_signals.config import Settings, get_settings
+from stock_signals.costs import CostModel
 from stock_signals.db import connect
+from stock_signals.metrics import metrics_lines
 from stock_signals.notify import Notifier, make_notifier
 from stock_signals.panel import Universe, load_panel
 from stock_signals.pipeline import Pipeline
+from stock_signals.report import write_report
 from stock_signals.scan import build_strategies, scan, scan_text
 from stock_signals.sources.yahoo import YahooSource
 from stock_signals.universe import (
@@ -103,6 +109,60 @@ def cmd_scan(settings: Settings, args: argparse.Namespace) -> str:
     return scan_text(result)
 
 
+def cost_model(settings: Settings) -> CostModel:
+    return CostModel(
+        brokerage_per_order=settings.brokerage_per_order, slippage_pct=settings.slippage_pct
+    )
+
+
+def _backtest(settings: Settings, books: list[str], periods: list[tuple[str, str, str]]) -> str:
+    """periods: (label, start, end). Loads history once with a warm-up before the first start."""
+    db = connect(settings)
+    store, symbols = BarStore(db), SymbolStore(db)
+    universe = Universe.from_store(symbols)
+    end = min(max(p[2] for p in periods), latest_session(store))
+    first = min(p[1] for p in periods)
+    warmup = dates.to_str(dates.parse(first) - timedelta(days=600))
+    panel = load_panel(store, universe, end=end, start=warmup)
+    snapshots = panel.by_date()
+    strategies = {s.book: s for s in build_strategies(universe)}
+    out_dir = settings.data_dir.parent / "reports"
+    lines = []
+    for label, start, stop in periods:
+        for book in books:
+            r = run_backtest(
+                panel,
+                strategies[book],
+                settings.capital()[book],
+                cost_model(settings),
+                settings.sizing(),
+                universe.sector_of,
+                start,
+                min(stop, end),
+                snapshots,
+            )
+            path = write_report(r, out_dir)
+            lines += [
+                f"📊 {label}: {r.variant} {r.start} → {r.end}",
+                *metrics_lines(r.metrics),
+                f"Report: {path}",
+                "",
+            ]
+    return "\n".join(lines).strip()
+
+
+def cmd_backtest(settings: Settings, args: argparse.Namespace) -> str:
+    books = ["swing", "positional"] if args.book == "all" else [args.book]
+    end = args.end or "2099-12-31"
+    return _backtest(settings, books, [("backtest", args.start, end)])
+
+
+def cmd_walkforward(settings: Settings, args: argparse.Namespace) -> str:
+    books = ["swing", "positional"] if args.book == "all" else [args.book]
+    labels = ["tune", "test"] + (["final"] if args.final else [])
+    return _backtest(settings, books, [(k, *PERIODS[k]) for k in labels])
+
+
 def cmd_telegram_test(settings: Settings, args: argparse.Namespace) -> str:
     return "👋 Hello from stock-signals"
 
@@ -113,6 +173,8 @@ COMMANDS = {
     "backfill": cmd_backfill,
     "update": cmd_update,
     "scan": cmd_scan,
+    "backtest": cmd_backtest,
+    "walkforward": cmd_walkforward,
     "telegram-test": cmd_telegram_test,
 }
 
@@ -134,6 +196,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     sc = sub.add_parser("scan", help="run the rules on one date (empty portfolio)")
     sc.add_argument("--date", help="YYYY-MM-DD (default: latest session)")
+
+    bt = sub.add_parser("backtest", help="backtest a book over a date range")
+    bt.add_argument("--book", choices=["swing", "positional", "all"], default="all")
+    bt.add_argument("--start", default="2016-01-01")
+    bt.add_argument("--end")
+
+    wf = sub.add_parser("walkforward", help="tune 2014–21, test 2022–24 (+ final 2025–now)")
+    wf.add_argument("--book", choices=["swing", "positional", "all"], default="all")
+    wf.add_argument(
+        "--final", action="store_true", help="also run the untouched final period (do this once)"
+    )
 
     sub.add_parser("telegram-test", help="send a hello message")
     return p

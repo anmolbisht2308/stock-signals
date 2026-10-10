@@ -1,6 +1,6 @@
 """Telegram message text."""
 
-from stock_signals.models import Signal
+from stock_signals.models import Position, Signal, Trade
 
 
 def rs(value: float) -> str:
@@ -38,4 +38,55 @@ def signal_text(s: Signal) -> str:
         f"SL {px(s.stop)}{targets}{hold}\n"
         f"Qty {s.qty} | Risk {rs(s.risk_amount)}\n"
         f"Why: {s.reason}"
+    )
+
+
+REASONS = {
+    "stop": "🔴 SL HIT",
+    "breakeven_stop": "⚪ Stopped at cost",
+    "t1": "🎯 T1 HIT",
+    "t2": "🎯🎯 T2 HIT",
+    "time_stop": "⏱️ Time stop",
+    "trail_ema20": "📉 Closed below 20 EMA",
+    "trail_sma50": "📉 Weekly close below 50-DMA",
+    "rank_exit": "📉 Momentum rank dropped",
+}
+
+
+def reason_label(reason: str) -> str:
+    return REASONS.get(reason, reason)
+
+
+def fill_text(p: Position) -> str:
+    return (
+        f"✅ {p.book.upper()} BOUGHT {p.symbol} {p.qty} @ {px(p.entry_price)} (paper)\n"
+        f"SL {px(p.stop)}"
+        + (f" | T1 {px(p.t1)}" if p.t1 else "")
+        + (f" | T2 {px(p.t2)}" if p.t2 else "")
+    )
+
+
+def skip_text(s: Signal, why: str) -> str:
+    return f"⏭️ {s.book.upper()} skipped {s.symbol}: {why}"
+
+
+def partial_text(p: Position, price: float, qty: int, reason: str) -> str:
+    return (
+        f"{reason_label(reason)} {p.book.upper()} {p.symbol}: sold {qty} @ {px(price)}, "
+        f"{p.qty} left"
+    )
+
+
+def stop_moved_text(p: Position) -> str:
+    return f"🛡️ {p.book.upper()} {p.symbol}: SL moved to cost {px(p.stop)}"
+
+
+def exit_planned_text(p: Position, reason: str) -> str:
+    return f"🚪 {p.book.upper()} {p.symbol}: {reason_label(reason)} — sell {p.qty} at next open"
+
+
+def exit_text(t: Trade, price: float) -> str:
+    return (
+        f"{reason_label(t.exit_reason)} {t.book.upper()} {t.symbol}: exited @ {px(price)}\n"
+        f"P&L {rs(t.net_pnl)} after costs ({t.r_multiple:+.2f}R) in {t.days_held}d"
     )
