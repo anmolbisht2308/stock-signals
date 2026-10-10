@@ -22,27 +22,29 @@ Work one phase at a time. Tick boxes as items are done.
 
 ## Phase 0 — Project setup
 
-- [ ] Python 3.11+ project (`uv` or `pip` + `pyproject.toml`), `src/` layout, `ruff` + `pytest`
-- [ ] `docker-compose.yml` with MongoDB (local)
-- [ ] Config via `.env` + Pydantic settings (Mongo URI, Telegram token/chat id, risk %, capital)
+- [x] Python 3.11+ project (`uv` + `pyproject.toml`), `src/` layout, `ruff` + `pytest`
+- [x] `docker-compose.yml` with MongoDB (local)
+- [x] Config via `.env` + Pydantic settings (Mongo URI, Telegram token/chat id, risk %, capital)
 - [ ] Create the Telegram bot with @BotFather; private group with only me; get the chat id
-- [ ] Universe files: Nifty 200 and Nifty 500 constituents (CSV, refreshed manually every 6 months)
-- [ ] Market calendar: NSE trading holidays for the year (skip runs on holidays)
-- [ ] Logging to file + a Telegram "job failed" message on any crash
+- [x] Universe files: Nifty 200 and Nifty 500 constituents (CSV, refreshed manually every 6 months) — `stock-signals universe --download`
+- [x] Market calendar: taken from the Nifty 50 index bars (it has a bar on every session), so no holiday list to maintain
+- [x] Logging to file (`data/logs/`) + a Telegram "job failed" message on any crash
 
 **Done when:** `pytest` passes on an empty test, Mongo runs, and a "hello" message reaches the Telegram group.
 
 ## Phase 1 — Data pipeline
 
-- [ ] Download daily OHLCV for the universe + Nifty 50 index + India VIX (yfinance `.NS`; NSE bhavcopy as fallback)
-- [ ] 10+ years of history for backtests; incremental daily update after 15:30 IST
-- [ ] Adjust for splits and bonuses (check by comparing raw vs adjusted; flag >30% overnight jumps)
-- [ ] Store in a MongoDB time-series collection `bars` (`symbol`, `date` as `YYYY-MM-DD` IST, OHLCV)
-- [ ] Data quality checks: missing days, zero volume, duplicates, stale symbols → report in Telegram
-- [ ] Handle symbol changes and delistings (keep a `symbols` collection with status)
-- [ ] Liquidity metric: 20-day median traded value per stock
+- [x] Download daily OHLCV for the universe + Nifty 50 index + India VIX (yfinance `.NS`; NSE bhavcopy fallback deferred until Yahoo proves unreliable)
+- [x] 10+ years of history for backtests; incremental daily update after 16:00 IST (re-fetches the last 7 days to catch corrections; today's bar ignored before 16:00)
+- [x] Adjust for splits and bonuses (Yahoo OHLC is split-adjusted; a new split triggers a full re-download of that stock; >30% unexplained jumps are flagged)
+- [x] Store in MongoDB `bars` (`symbol`, `date` as `YYYY-MM-DD` IST, OHLCV, `adj_close`) — a regular collection with a unique (symbol, date) index so every re-run is an idempotent upsert
+- [x] Data quality checks: missing days, zero volume, duplicates, bad OHLC, stale symbols, failed downloads → report in Telegram
+- [x] Handle symbol changes and delistings (`symbols` collection with status active/removed/renamed; `stock-signals rename OLD NEW`)
+- [x] Liquidity metric: 20-day median traded value per stock (`symbols.median_traded_value_20d`)
 
 **Done when:** the daily job updates all symbols in under 10 minutes and the quality report is clean.
+
+> Code and tests are done. Still to verify on my machine: first real backfill + a week of daily updates (Yahoo/NSE were not reachable from the build environment).
 
 ## Phase 2 — Indicators and rule-based signals
 
