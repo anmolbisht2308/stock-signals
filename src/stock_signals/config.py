@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
     data_dir: Path = Path("data")
-    history_years: int = 10
+    history_years: int = 13  # covers the 2014 walk-forward start plus warm-up
     # Symbols fetched per download call.
     batch_size: int = 50
 

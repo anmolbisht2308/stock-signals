@@ -28,7 +28,7 @@ uv run stock-signals telegram-test
 
 ```bash
 uv run stock-signals universe --download   # Nifty 100 / 200 / 500 lists from niftyindices.com
-uv run stock-signals backfill              # ~10 years of daily bars (first run takes a while)
+uv run stock-signals backfill              # ~13 years of daily bars (first run takes a while)
 uv run stock-signals update                # daily, after 16:00 IST
 uv run stock-signals rename OLDSYM NEWSYM  # when NSE changes a symbol
 ```
