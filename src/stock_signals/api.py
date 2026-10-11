@@ -1,4 +1,4 @@
-"""Read-only JSON API for the admin panel (Phase 10.1).
+"""JSON API for the admin panel (Phase 10.1 read-only views, 10.3 jobs).
 
 Runs on 127.0.0.1 only. Every endpoint except /api/login needs the bearer token that
 /api/login returns for the ADMIN_PASSWORD in .env. Secrets (bot token, Mongo URI) are
@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from stock_signals import dates
 from stock_signals.indicators import add_indicators
+from stock_signals.job_runner import JobError, JobRunner, redactor
 from stock_signals.jobs import App
 from stock_signals.jsonsafe import clean
 from stock_signals.metrics import compute_metrics
@@ -53,6 +54,11 @@ class Login(BaseModel):
     password: str
 
 
+class JobRequest(BaseModel):
+    kind: str
+    params: dict = {}
+
+
 class TTLCache:
     """Tiny cache so the dashboard doesn't rebuild the 600-day indicator panel per request."""
 
@@ -69,8 +75,14 @@ class TTLCache:
         return value
 
 
-def create_api(app: App) -> FastAPI:
+def create_api(app: App, runner: JobRunner | None = None) -> FastAPI:
     settings = app.settings
+    if runner is None:
+        runner = JobRunner(
+            app.db,
+            redactor([settings.telegram_bot_token, settings.mongo_uri, settings.admin_password]),
+        )
+        runner.recover()
     api = FastAPI(title="stock-signals admin API", version="1")
     api.add_middleware(
         CORSMiddleware,
@@ -390,5 +402,40 @@ def create_api(app: App) -> FastAPI:
                 )
             }
         )
+
+    def job_call(fn, *args):  # noqa: ANN001, ANN202 - small adapter from JobError to HTTP
+        try:
+            return clean(fn(*args))
+        except JobError as exc:
+            raise HTTPException(exc.status, str(exc)) from exc
+
+    @api.get("/api/jobs", dependencies=auth)
+    def list_jobs(limit: int = 20) -> dict:
+        return clean({"jobs": runner.recent(min(limit, 100)), "running": runner.running()})
+
+    @api.post("/api/jobs", dependencies=auth, status_code=201)
+    def start_job(body: JobRequest) -> dict:
+        return job_call(runner.start, body.kind, body.params)
+
+    @api.get("/api/jobs/{job_id}", dependencies=auth)
+    def get_job(job_id: str, since: int = 0) -> dict:
+        job = runner.get(job_id, max(since, 0))
+        if job is None:
+            raise HTTPException(404, "Job not found")
+        return clean(job)
+
+    @api.post("/api/jobs/{job_id}/cancel", dependencies=auth)
+    def cancel_job(job_id: str) -> dict:
+        return job_call(runner.cancel, job_id)
+
+    @api.post("/api/pause", dependencies=auth)
+    def pause() -> dict:
+        app.paper.set_paused(True)
+        return {"paused": True}
+
+    @api.post("/api/resume", dependencies=auth)
+    def resume() -> dict:
+        app.paper.set_paused(False)
+        return {"paused": False}
 
     return api

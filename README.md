@@ -140,3 +140,7 @@ uv run stock-signals api        # http://127.0.0.1:8000/docs lists every endpoin
 ```
 
 The API listens on your Mac only (127.0.0.1), never returns the bot token or Mongo URI, and every endpoint needs the token from `POST /api/login`.
+
+**Jobs (Phase 10.3).** The panel's Run page starts the same CLI commands you would type (`update`, `evening`, `scan`, `backtest`, `walkforward`, `basket-backtest`, `review`, `telegram-test`) as child processes of the API, and shows their output live. Results still go to Telegram. Only one heavy job runs at a time (a second one gets "still running"); jobs can be cancelled. The bot token and Mongo credentials are scrubbed from the stored logs. Pause / resume work like `/pause` and `/resume` in Telegram.
+
+The scheduled jobs inside `serve` don't take the panel's lock, so avoid starting an evening run from the panel around 16:30 IST while the bot is running.
