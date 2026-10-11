@@ -4,7 +4,19 @@ import mongomock
 import pandas as pd
 import pytest
 
+from stock_signals.config import Settings, get_settings
 from stock_signals.sources import BAR_COLUMNS, SPLIT_COLUMNS, FetchResult
+
+
+@pytest.fixture(autouse=True)
+def isolated_settings(monkeypatch, tmp_path):
+    """Keep tests independent of the developer's real .env and environment."""
+    monkeypatch.chdir(tmp_path)  # Settings reads .env from the working directory
+    for name in Settings.model_fields:
+        monkeypatch.delenv(name.upper(), raising=False)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def weekdays(start: str, end: str) -> list[str]:
