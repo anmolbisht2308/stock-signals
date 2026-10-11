@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     max_positions: int = 10
     slippage_pct: float = 0.1
     brokerage_per_order: float = 0.0  # delivery brokerage (₹0 at most discount brokers)
+    # swing-v1 showed no edge after costs in any backtest period, so it is off for
+    # scans and paper trading. Backtests can still run it with --book swing.
+    swing_enabled: bool = False
 
     basket_capital: float = 500_000
     core_pct: float = 70.0

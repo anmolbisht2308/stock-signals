@@ -124,7 +124,7 @@ def test_shadow_model_book(db, tmp_path):
     from stock_signals.ml.evaluate import train_final
 
     days = seed(db)
-    settings = Settings(data_dir=tmp_path / "data")
+    settings = Settings(data_dir=tmp_path / "data", swing_enabled=True)
     app = App.create(settings, db=db)
     universe = app.universe()
     from stock_signals.panel import load_panel
@@ -139,5 +139,17 @@ def test_shadow_model_book(db, tmp_path):
     text = evening(app, update=False)
     assert days[-1] in text
     assert app.paper.load_state("swing-v1+lgbm") is not None
-    settings_off = Settings(data_dir=tmp_path / "data", shadow_models=False)
+    settings_off = Settings(data_dir=tmp_path / "data", shadow_models=False, swing_enabled=True)
     assert len(App.create(settings_off, db=db).strategies(universe, panel)) == 2
+
+
+def test_swing_off_by_default(db, tmp_path):
+    days = seed(db)
+    app = App.create(Settings(data_dir=tmp_path), db=db)
+    universe = app.universe()
+    assert [s.version for s in app.strategies(universe)] == ["positional-v1"]
+    evening(app, update=False)
+    assert app.paper.load_state("swing-v1") is None
+    assert app.paper.load_state("positional-v1").last_date == days[-1]
+    on = App.create(Settings(data_dir=tmp_path, swing_enabled=True), db=db)
+    assert [s.book for s in on.strategies(universe)] == ["swing", "positional"]

@@ -103,9 +103,8 @@ def cmd_scan(settings: Settings, args: argparse.Namespace) -> str:
     panel = load_panel(store, universe, end=date)
     if date not in panel.calendar:
         raise ValueError(f"{date} is not a trading session in the stored data")
-    result = scan(
-        panel, universe, date, build_strategies(universe), settings.capital(), settings.sizing()
-    )
+    strategies = build_strategies(universe, swing=settings.swing_enabled)
+    result = scan(panel, universe, date, strategies, settings.capital(), settings.sizing())
     return scan_text(result)
 
 

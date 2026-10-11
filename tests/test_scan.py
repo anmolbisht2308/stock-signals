@@ -45,3 +45,9 @@ def test_scan_end_to_end_is_deterministic():
     assert first.signals == second.signals
     text = scan_text(first)
     assert "SWING BUY BRK" in text and "Market risk-on" in text
+
+
+def test_build_strategies_without_swing():
+    universe = Universe(swing={"A"}, positional={"A"}, sector_of={})
+    assert [s.book for s in build_strategies(universe)] == ["swing", "positional"]
+    assert [s.book for s in build_strategies(universe, swing=False)] == ["positional"]

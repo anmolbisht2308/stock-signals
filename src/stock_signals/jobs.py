@@ -63,7 +63,7 @@ class App:
 
     def strategies(self, universe: Universe, panel: Panel | None = None) -> list[Strategy]:
         """Rules-only books, plus a shadow book per saved model (Phase 7/8)."""
-        base = build_strategies(universe)
+        base = build_strategies(universe, swing=self.settings.swing_enabled)
         if panel is None or not self.settings.shadow_models:
             return base
         shadows: list[Strategy] = []

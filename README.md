@@ -51,6 +51,8 @@ HTML reports, trade lists and equity CSVs go to `reports/`.
 
 ## Paper trading on Telegram (Phase 4)
 
+The swing book is **off** (`SWING_ENABLED=false`): it showed no edge after costs in any backtest period. Scans and paper trading run the positional book and the baskets; `backtest --book swing` still works for experiments.
+
 Leave this running (PC on during market days):
 
 ```bash

@@ -12,8 +12,11 @@ from stock_signals.strategies.positional import PositionalRules
 from stock_signals.strategies.swing import SwingRules
 
 
-def build_strategies(universe: Universe) -> list[Strategy]:
-    return [SwingRules(universe=universe.swing), PositionalRules(universe=universe.positional)]
+def build_strategies(universe: Universe, swing: bool = True) -> list[Strategy]:
+    strategies: list[Strategy] = [PositionalRules(universe=universe.positional)]
+    if swing:
+        strategies.insert(0, SwingRules(universe=universe.swing))
+    return strategies
 
 
 @dataclass
