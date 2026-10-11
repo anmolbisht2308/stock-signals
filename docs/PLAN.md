@@ -157,6 +157,19 @@ Work one phase at a time. Tick boxes as items are done.
 
 ---
 
+## Phase 10 — Admin panel
+
+Separate frontend repo: `anmolbisht2308/stock-signals-frontend` (Next.js). This repo serves a JSON API over the same code and data; it listens on 127.0.0.1 only and needs `ADMIN_PASSWORD`.
+
+- [x] **10.1 API (read-only):** `stock-signals api` (FastAPI) — login, dashboard (market mood, books, baskets, today's plan, last data run), positions + closed trades, performance + equity vs Nifty, baskets (weights vs targets, history), backtest reports (summary JSON saved with every report), data health, stock page data (candles + indicators + signals), settings (no secrets), journal
+- [ ] **10.2 Panel skeleton:** Next.js app, login, layout, Dashboard / Positions / Baskets pages, ⓘ explanations from one glossary file
+- [ ] **10.3 Buttons + jobs:** background job runner (`jobs` collection, one heavy job at a time, live logs) and buttons for update / evening / scan / backtest / walk-forward / basket-backtest / review / pause / resume / telegram-test
+- [ ] **10.4 Charts:** equity + drawdown, candle chart stock page, monthly returns heatmap, backtest comparison
+- [ ] **10.5 Settings + Learn:** editable settings stored in Mongo (override `.env`), Learn page with plain-language glossary
+- [ ] **10.6 One command:** `stock-signals up` starts bot + API (+ panel)
+
+---
+
 ## Keep rule
 
 A model (LightGBM, Kronos, or anything new) stays only if, compared with the version without it:

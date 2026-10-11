@@ -80,12 +80,19 @@ def cmd_rename(settings: Settings, args: argparse.Namespace) -> str:
     return f"🔤 {args.old} → {args.new}; run `update` to backfill {args.new}"
 
 
+def _run_pipeline(settings: Settings, full: bool, only: list[str] | None) -> str:
+    pipeline = make_pipeline(settings)
+    result = pipeline.run(full=full, only=only)
+    jobs.record_data_run(jobs.App.create(settings, db=pipeline.bars.col.database), result)
+    return result.summary()
+
+
 def cmd_backfill(settings: Settings, args: argparse.Namespace) -> str:
-    return make_pipeline(settings).run(full=True, only=args.symbols).summary()
+    return _run_pipeline(settings, full=True, only=args.symbols)
 
 
 def cmd_update(settings: Settings, args: argparse.Namespace) -> str:
-    return make_pipeline(settings).run(full=False, only=args.symbols).summary()
+    return _run_pipeline(settings, full=False, only=args.symbols)
 
 
 def latest_session(store: BarStore) -> str:
@@ -369,6 +376,17 @@ def cmd_serve(settings: Settings, args: argparse.Namespace) -> str:
     return "👋 Bot stopped"
 
 
+def cmd_api(settings: Settings, args: argparse.Namespace) -> str:
+    import uvicorn
+
+    from stock_signals.api import create_api
+
+    if not settings.admin_password:
+        raise RuntimeError("Set ADMIN_PASSWORD in .env before starting the admin API")
+    uvicorn.run(create_api(jobs.App.create(settings)), host="127.0.0.1", port=settings.api_port)
+    return "👋 API stopped"
+
+
 def cmd_telegram_test(settings: Settings, args: argparse.Namespace) -> str:
     return "👋 Hello from stock-signals"
 
@@ -391,6 +409,7 @@ COMMANDS = {
     "morning": cmd_morning,
     "weekly": cmd_weekly,
     "serve": cmd_serve,
+    "api": cmd_api,
     "telegram-test": cmd_telegram_test,
 }
 
@@ -450,6 +469,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("morning", help="send today's plan")
     sub.add_parser("weekly", help="send the weekly summary")
     sub.add_parser("serve", help="run the Telegram bot with the built-in schedule")
+    sub.add_parser("api", help="run the admin panel API on 127.0.0.1 (needs ADMIN_PASSWORD)")
 
     sub.add_parser("telegram-test", help="send a hello message")
     return p

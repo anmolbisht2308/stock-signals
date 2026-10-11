@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from stock_signals.backtest import BacktestResult
+from stock_signals.jsonsafe import clean
 from stock_signals.messages import reason_label, rs
 from stock_signals.metrics import LABELS, fmt
 
@@ -235,4 +236,16 @@ def write_report(r: BacktestResult, out_dir: Path) -> Path:
     pd.DataFrame({"equity": r.equity, "invested": r.invested, "nifty": r.benchmark}).to_csv(
         out_dir / f"{stem}-equity.csv", index_label="date"
     )
+    summary = {
+        "book": r.book,
+        "variant": r.variant,
+        "start": r.start,
+        "end": r.end,
+        "capital": r.capital,
+        "metrics": r.metrics,
+        "signals": r.signals,
+        "skips": r.skips,
+        "open_positions": r.open_positions,
+    }
+    (out_dir / f"{stem}-summary.json").write_text(json.dumps(clean(summary), indent=2))
     return path

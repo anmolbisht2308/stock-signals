@@ -129,3 +129,14 @@ uv run stock-signals ml-train --book swing --kronos   # only after a KEEP
 ```
 
 Kronos is only judged on data after mid-2024 (its pre-training may include earlier prices). If it doesn't beat the baselines, don't use it.
+
+## Admin panel API (Phase 10)
+
+The panel lives in a separate repo: [stock-signals-frontend](https://github.com/anmolbisht2308/stock-signals-frontend). This repo serves its data:
+
+```bash
+echo "ADMIN_PASSWORD=choose-a-password" >> .env
+uv run stock-signals api        # http://127.0.0.1:8000/docs lists every endpoint
+```
+
+The API listens on your Mac only (127.0.0.1), never returns the bot token or Mongo URI, and every endpoint needs the token from `POST /api/login`.

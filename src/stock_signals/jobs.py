@@ -1,7 +1,7 @@
 """Scheduled jobs shared by the CLI (cron) and the bot's built-in scheduler."""
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from pymongo.database import Database
@@ -17,7 +17,7 @@ from stock_signals.ml.model import TrainedModel
 from stock_signals.ml.scored import ModelScorer, ScoredStrategy
 from stock_signals.panel import Panel, Universe, load_panel
 from stock_signals.paper import PaperStore, PaperTrader
-from stock_signals.pipeline import Pipeline
+from stock_signals.pipeline import Pipeline, RunResult
 from stock_signals.scan import build_strategies
 from stock_signals.sources.yahoo import YahooSource
 from stock_signals.strategies import Strategy
@@ -110,6 +110,24 @@ def model_names(models_dir: Path, book: str) -> list[str]:
     return sorted(p.name for p in models_dir.glob(f"{book}-*.txt"))
 
 
+def record_data_run(app: App, result: RunResult) -> None:
+    """Keep a short history of data downloads for the admin panel's Data health page."""
+    app.db["data_runs"].insert_one(
+        {
+            "kind": result.kind,
+            "end": result.end,
+            "symbols": result.symbols,
+            "rows": result.rows,
+            "failed": result.failed,
+            "refetched": result.refetched,
+            "issues": len(result.quality.issues),
+            "summary": result.summary(),
+            "seconds": result.seconds,
+            "finished_at": datetime.now(UTC),
+        }
+    )
+
+
 def update_data(app: App, now: datetime | None = None) -> str:
     pipeline = Pipeline(
         app.bars,
@@ -120,6 +138,7 @@ def update_data(app: App, now: datetime | None = None) -> str:
     )
     pipeline.setup()
     result = pipeline.run(now=now)
+    record_data_run(app, result)
     if result.failed or not result.quality.ok:
         return result.summary()
     return f"📥 Data updated to {result.end} ({result.symbols} symbols)"
